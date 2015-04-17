@@ -39,13 +39,13 @@ decrypt(Token, Key, TTL, CurrentTimestamp) ->
     case valid_timestamp(Timestamp, CurrentTimestamp, TTL) of
         false ->
             throw(invalid_token);
-        _ ->
+        true ->
             valid
     end,
     case valid_hmac(HMAC, Message, SigningKey) of
         false ->
             throw(invalid_token);
-        _ ->
+        true ->
             valid
     end,
     PaddedPlaintext = crypto:block_decrypt(aes_cbc128, EncryptionKey, IV, Ciphertext),
