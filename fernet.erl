@@ -22,14 +22,10 @@ encode_token(Message, HMAC) ->
 decode_key(Key) ->
     KeyBin = base64url:decode(Key),
     <<SigningKey:128/bitstring, EncryptionKey:128/bitstring>> = KeyBin,
-    io:format("Signing key: ~w, Encryption key: ~w~n", [SigningKey, EncryptionKey]),
     {SigningKey, EncryptionKey}.
 
 generate_key() ->
-    SigningKey = crypto:strong_rand_bytes(128 div 8),
-    EncryptionKey = crypto:strong_rand_bytes(128 div 8),
-    KeyBin = <<SigningKey:128/bitstring, EncryptionKey:128/bitstring>>,
-    base64url:encode(KeyBin).
+    base64url:encode(crypto:strong_rand_bytes(256 div 8)).
 
 decrypt(Token, Key) ->
     decrypt(Token, Key, none).
@@ -53,7 +49,6 @@ decrypt(Token, Key, TTL, CurrentTimestamp) ->
             valid
     end,
     PaddedPlaintext = crypto:block_decrypt(aes_cbc128, EncryptionKey, IV, Ciphertext),
-    io:format("Padded plaintext: ~w~n", [PaddedPlaintext]),
     pkcs7:unpad(PaddedPlaintext).
 
 encrypt(Plaintext, Key) ->
@@ -64,7 +59,6 @@ encrypt(Plaintext, Key) ->
 encrypt(Plaintext, Key, IV, Timestamp) ->
     {SigningKey, EncryptionKey} = decode_key(Key),
     PaddedPlaintext = pkcs7:pad(Plaintext),
-    io:format("Padded plaintext: ~w~n", [PaddedPlaintext]),
     Ciphertext = crypto:block_encrypt(aes_cbc128, EncryptionKey, IV, PaddedPlaintext),
     Message = encode_message(Timestamp, IV, Ciphertext),
     HMAC = hmac_sha256(SigningKey, Message),
@@ -100,6 +94,9 @@ eq(<<>>, <<>>, 0) ->
 eq(_As, _Bs, _Acc) ->
     false.
 
+
+generate_key_test() ->
+    decode_key(generate_key()).
 
 decrypt_test() ->
     Key = <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>,
