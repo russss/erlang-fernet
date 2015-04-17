@@ -1,5 +1,8 @@
 -module(fernet).
--compile([export_all]).
+-export([generate_key/0,
+         decrypt/2,
+         decrypt/3,
+         encrypt/2]).
 -include_lib("eunit/include/eunit.hrl").
 
 decode_token(Token) ->
