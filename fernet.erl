@@ -75,13 +75,7 @@ hmac_sha256(Key, Data) ->
 
 valid_hmac(HMAC, Data, Key) ->
     CalculatedHMAC = hmac_sha256(Key, Data),
-    %% TODO: this is not a constant-time comparison!
-    case CalculatedHMAC of
-        HMAC ->
-            true;
-        _ ->
-            false
-    end.
+    eq(CalculatedHMAC, HMAC).
 
 valid_timestamp(_Timestamp, _CurrentTimestamp, TTL) when TTL == none ->
     true;
@@ -94,12 +88,25 @@ current_timestamp() ->
     {Mega, Sec, Micro} = os:timestamp(),
     Mega * 1000000 * 1000000 + Sec * 1000000 + Micro.
 
+%% Constant-time equality check, from Mochiweb's mochiweb_session module (BSD license).
+-spec eq(binary(), binary()) -> boolean().
+eq(A, B) when is_binary(A) andalso is_binary(B) ->
+    eq(A, B, 0).
+
+eq(<<A, As/binary>>, <<B, Bs/binary>>, Acc) ->
+    eq(As, Bs, Acc bor (A bxor B));
+eq(<<>>, <<>>, 0) ->
+    true;
+eq(_As, _Bs, _Acc) ->
+    false.
+
 
 decrypt_test() ->
     Key = <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>,
     Token = <<"gAAAAAAdwJ6wAAECAwQFBgcICQoLDA0ODy021cpGVWKZ_eEwCGM4BLLF_5CV9dOPmrhuVUPgJobwOz7JcbmrR64jVmpU4IwqDA==">>,
     <<"hello">> = decrypt(Token, Key),
-    ?assertThrow(invalid_token, decrypt(Token, Key, 60)).
+    ?assertThrow(invalid_token, decrypt(Token, Key, 60)),
+    ?assertThrow(invalid_token, decrypt(<<"gAAAAAAdwJ6xAAECAwQFBgcICQoLDA0OD3HkMATM5lFqGaerZ-fWPAl1-szkFVzXTuGb4hR8AKtwcaX1YdykQUFBQUFBQUFBQQ==">>, <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>)).
 
 encrypt_test() ->
     Key = <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>,
