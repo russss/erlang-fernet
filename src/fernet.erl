@@ -111,24 +111,41 @@ eq(_As, _Bs, _Acc) ->
 generate_key_test() ->
     decode_key(generate_key()).
 
-decrypt_test() ->
-    Key = <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>,
-    Token = <<"gAAAAAAdwJ6wAAECAwQFBgcICQoLDA0ODy021cpGVWKZ_eEwCGM4BLLF_5CV9dOPmrhuVUPgJobwOz7JcbmrR64jVmpU4IwqDA==">>,
-    <<"hello">> = decrypt(Token, Key),
-    ?assertThrow(invalid_token, decrypt(Token, Key, 60)),
-    ?assertThrow(invalid_token, decrypt(<<"gAAAAAAdwJ6xAAECAwQFBgcICQoLDA0OD3HkMATM5lFqGaerZ-fWPAl1-szkFVzXTuGb4hR8AKtwcaX1YdykQUFBQUFBQUFBQQ==">>, <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>)).
-
-encrypt_test() ->
-    Key = <<"cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=">>,
-    IV = <<0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15>>,
-    Timestamp = 499162800,
-    Plaintext = <<"hello">>,
-    Token = <<"gAAAAAAdwJ6wAAECAwQFBgcICQoLDA0ODy021cpGVWKZ_eEwCGM4BLLF_5CV9dOPmrhuVUPgJobwOz7JcbmrR64jVmpU4IwqDA==">>,
-    Token = encrypt(Plaintext, Key, IV, Timestamp).
-
 roundtrip_test() ->
     Key = generate_key(),
     Plaintext = <<"Test message 1234567890123456789012345678901234567890">>,
     Token = encrypt(Plaintext, Key),
     Plaintext = decrypt(Token, Key).
+
+fernet_spec_test() ->
+    {ok, Data} = file:read_file("../test_fixtures"),
+    [run_tests(Type, Tests) || {Type, Tests} <- erlang:binary_to_term(Data)].
+
+run_tests("verify", Tests) ->
+    [spec_verify(Test) || Test <- Tests];
+run_tests("invalid", Tests) ->
+    [spec_invalid(Test) || Test <- Tests];
+run_tests("generate", Tests) ->
+    [spec_generate(Test) || Test <- Tests].
+
+spec_verify(Test) ->
+    Src = list_to_binary(proplists:get_value("src", Test)),
+    Src = decrypt(proplists:get_value("token", Test), proplists:get_value("secret", Test),
+                  proplists:get_value("ttl_sec", Test), proplists:get_value("now", Test)).
+
+spec_invalid(Test) ->
+    Token = proplists:get_value("token", Test),
+    Secret = proplists:get_value("secret", Test),
+    TTL = proplists:get_value("ttl_sec", Test),
+    Now = proplists:get_value("now", Test),
+    ?assertThrow(invalid_token, decrypt(Token, Secret, TTL, Now)).
+
+spec_generate(Test) ->
+    Token = list_to_binary(proplists:get_value("token", Test)),
+    Secret = proplists:get_value("secret", Test),
+    Now = proplists:get_value("now", Test),
+    IV = list_to_binary(proplists:get_value("iv", Test)),
+    Src = list_to_binary(proplists:get_value("src", Test)),
+    Token = encrypt(Src, Secret, IV, Now).
+
 -endif.
