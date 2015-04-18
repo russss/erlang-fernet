@@ -40,30 +40,34 @@ decrypt(Token, Key, TTL) ->
     decrypt(Token, Key, TTL, current_timestamp()).
 
 decrypt(Token, Key, TTL, CurrentTimestamp) ->
-    {HMAC, Message} = decode_token(Token),
-    {Timestamp, IV, Ciphertext} = decode_message(Message),
+    {HMAC, Message} = try decode_token(Token) catch
+        error:_ -> throw(invalid_token)
+    end,
+    {Timestamp, IV, Ciphertext} = try decode_message(Message) catch
+        error:{badmatch, _} -> throw(invalid_token)
+    end,
     {SigningKey, EncryptionKey} = decode_key(Key),
-    case valid_timestamp(Timestamp, CurrentTimestamp, TTL) of
+    case valid_timestamp(Timestamp, CurrentTimestamp, TTL) andalso valid_hmac(HMAC, Message, SigningKey) of
         false ->
             throw(invalid_token);
         true ->
             valid
     end,
-    case valid_hmac(HMAC, Message, SigningKey) of
-        false ->
-            throw(invalid_token);
-        true ->
-            valid
+    PaddedPlaintext = try crypto:block_decrypt(aes_cbc128, EncryptionKey, IV, Ciphertext) catch
+        error:_ -> throw(invalid_token)
     end,
-    PaddedPlaintext = crypto:block_decrypt(aes_cbc128, EncryptionKey, IV, Ciphertext),
-    fernet_pkcs7:unpad(PaddedPlaintext).
+    io:format("~w~n", [PaddedPlaintext]),
+    try fernet_pkcs7:unpad(PaddedPlaintext) catch
+        invalid_padding ->
+            throw(invalid_token)
+    end.
 
 encrypt(Plaintext, Key) ->
     IV = crypto:strong_rand_bytes(128 div 8),
     Timestamp = current_timestamp(),
     encrypt(Plaintext, Key, IV, Timestamp).
 
-encrypt(Plaintext, Key, IV, Timestamp) ->
+encrypt(Plaintext, Key, IV, Timestamp) when is_binary(Plaintext), is_binary(IV), is_integer(Timestamp) ->
     {SigningKey, EncryptionKey} = decode_key(Key),
     PaddedPlaintext = fernet_pkcs7:pad(Plaintext),
     Ciphertext = crypto:block_encrypt(aes_cbc128, EncryptionKey, IV, PaddedPlaintext),
@@ -81,7 +85,7 @@ valid_hmac(HMAC, Data, Key) ->
 valid_timestamp(_Timestamp, _CurrentTimestamp, TTL) when TTL == none ->
     true;
 valid_timestamp(Timestamp, CurrentTimestamp, TTL) when Timestamp + TTL > CurrentTimestamp andalso
-                                                       CurrentTimestamp + ?MAX_CLOCK_SKEW < Timestamp ->
+                                                       CurrentTimestamp + ?MAX_CLOCK_SKEW >= Timestamp ->
     true;
 valid_timestamp(_Timestamp, _CurrentTimestamp, _TTL) ->
     false.
