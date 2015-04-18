@@ -4,6 +4,7 @@
          decrypt/3,
          encrypt/2]).
 -include_lib("eunit/include/eunit.hrl").
+-define(MAX_CLOCK_SKEW, 60).
 
 decode_token(Token) ->
     TokenBin = base64url:decode(Token),
@@ -73,7 +74,8 @@ valid_hmac(HMAC, Data, Key) ->
 
 valid_timestamp(_Timestamp, _CurrentTimestamp, TTL) when TTL == none ->
     true;
-valid_timestamp(Timestamp, CurrentTimestamp, TTL) when Timestamp + TTL > CurrentTimestamp ->
+valid_timestamp(Timestamp, CurrentTimestamp, TTL) when Timestamp + TTL > CurrentTimestamp andalso
+                                                       CurrentTimestamp + ?MAX_CLOCK_SKEW < Timestamp ->
     true;
 valid_timestamp(_Timestamp, _CurrentTimestamp, _TTL) ->
     false.
