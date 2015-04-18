@@ -24,7 +24,19 @@ pad(Data, Padding, Acc) ->
     <<D2/binary, Padding/integer>>.
 
 unpad(Data) when is_binary(Data) ->
-    binary:part(Data, 0, byte_size(Data) - binary:last(Data)).
+    Padding = binary:last(Data),
+    unpad(Data, Padding, Padding).
+
+unpad(Data, _Value, 0) ->
+    Data;
+unpad(Data, Value, Count) ->
+    case binary:last(Data) of
+        Value ->
+            ok;
+        _ ->
+            throw(invalid_padding)
+    end,
+    unpad(binary:part(Data, 0, byte_size(Data) - 1), Value, Count - 1).
 
 
 -ifdef(TEST).
@@ -46,5 +58,7 @@ unpad_test() ->
     <<3, 3, 3, 3, 3>> = unpad(<<3, 3, 3, 3, 3, 3, 3, 3>>),
     <<3, 3, 3, 3, 3, 3>> = unpad(<<3, 3, 3, 3, 3, 3, 2, 2>>),
     <<3, 3, 3, 3, 3, 3, 3>> = unpad(<<3, 3, 3, 3, 3, 3, 3, 1>>),
-    <<3, 3, 3, 3, 3, 3, 3, 3>> = unpad(<<3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8>>).
+    <<3, 3, 3, 3, 3, 3, 3, 3>> = unpad(<<3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8>>),
+    ?assertThrow(invalid_padding, unpad(<<3, 3, 6, 6, 6, 6, 6>>)).
+
 -endif.
