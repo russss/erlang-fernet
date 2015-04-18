@@ -17,8 +17,7 @@ encode_message(Timestamp, IV, Ciphertext) ->
     <<128, Timestamp:64/integer, IV:128/bitstring, Ciphertext/binary>>.
 
 encode_token(Message, HMAC) ->
-    Token = base64url:encode(<<Message/bitstring, HMAC/bitstring>>),
-    <<Token/bitstring, <<"==">>/bitstring>>.
+    base64url:encode(<<Message/bitstring, HMAC/bitstring>>).
 
 decode_key(Key) ->
     KeyBin = base64url:decode(Key),
