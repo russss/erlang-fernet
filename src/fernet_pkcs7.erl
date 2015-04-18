@@ -17,8 +17,6 @@ pad(Data, Length) when is_binary(Data), is_integer(Length), byte_size(Data) < 25
             pad(Data, Padding, Padding)
     end.
 
-pad(Data, 0, 0) ->
-    pad(Data, 8, 8);
 pad(Data, _Padding, 0) ->
     Data;
 pad(Data, Padding, Acc) ->
