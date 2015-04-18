@@ -8,14 +8,14 @@ pad(Data) ->
     pad(Data, 16).
 
 pad(Data, Length) when is_binary(Data), is_integer(Length), byte_size(Data) < 256 ->
-    Padding = Length - byte_size(Data) rem Length,
-    case Padding of
+    Padding = case Length - byte_size(Data) rem Length of
         0 ->
-            % Data is one block in size, add another whole block.
-            pad(Data, Length, Length);
-        _ ->
-            pad(Data, Padding, Padding)
-    end.
+            %% In case of no padding needed, add another full block
+            Length;
+        Other ->
+            Other
+    end,
+    pad(Data, Padding, Padding).
 
 pad(Data, _Padding, 0) ->
     Data;
