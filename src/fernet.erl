@@ -3,7 +3,9 @@
          decrypt/2,
          decrypt/3,
          encrypt/2]).
+-ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+-endif.
 -define(MAX_CLOCK_SKEW, 60).
 
 encode_token(Message, HMAC) ->
@@ -101,6 +103,7 @@ eq(_As, _Bs, _Acc) ->
     false.
 
 
+-ifdef(TEST).
 generate_key_test() ->
     decode_key(generate_key()).
 
@@ -124,3 +127,4 @@ roundtrip_test() ->
     Plaintext = <<"Test message 1234567890123456789012345678901234567890">>,
     Token = encrypt(Plaintext, Key),
     Plaintext = decrypt(Token, Key).
+-endif.
