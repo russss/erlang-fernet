@@ -7,9 +7,11 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+-spec pad(binary()) -> binary().
 pad(Data) ->
     pad(Data, 16).
 
+-spec pad(binary(), byte()) -> binary().
 pad(Data, Length) when is_binary(Data), is_integer(Length), byte_size(Data) < 256 ->
     Padding = case Length - byte_size(Data) rem Length of
         0 ->
@@ -20,16 +22,19 @@ pad(Data, Length) when is_binary(Data), is_integer(Length), byte_size(Data) < 25
     end,
     pad(Data, Padding, Padding).
 
+-spec pad(binary(), byte(), byte()) -> binary().
 pad(Data, _Padding, 0) ->
     Data;
 pad(Data, Padding, Acc) ->
     D2 = pad(Data, Padding, Acc - 1),
     <<D2/binary, Padding/integer>>.
 
+-spec unpad(binary()) -> binary().
 unpad(Data) when is_binary(Data) ->
     Padding = binary:last(Data),
     unpad(Data, Padding, Padding).
 
+-spec unpad(binary(), byte(), byte()) -> binary().
 unpad(Data, _Value, 0) ->
     Data;
 unpad(Data, Value, Count) ->

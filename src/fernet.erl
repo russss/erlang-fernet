@@ -11,9 +11,17 @@
 -endif.
 -define(MAX_CLOCK_SKEW, 60).
 
-encode_token(Message, HMAC) ->
+-type token() :: [binary() | string()].
+-type hmac() :: <<_:128>>.
+-type timestamp() :: integer().
+-type ttl() :: integer() | none.
+-type iv() :: <<_:128>>.
+
+-spec encode_token(binary(), binary()) -> binary().
+encode_token(Message, HMAC) when is_binary(Message), is_binary(HMAC) ->
     base64url:encode(<<Message/bitstring, HMAC/bitstring>>).
 
+-spec decode_token(token()) -> {hmac(), binary()}.
 decode_token(Token) ->
     TokenBin = base64url:decode(Token),
     %% Split the token into the HMAC and the message (everything else)
@@ -21,27 +29,34 @@ decode_token(Token) ->
     Message = binary:part(TokenBin, 0, byte_size(TokenBin) - 256 div 8),
     {HMAC, Message}.
 
+-spec encode_message(timestamp(), iv(), binary()) -> binary().
 encode_message(Timestamp, IV, Ciphertext) ->
     <<128, Timestamp:64/integer, IV:128/bitstring, Ciphertext/binary>>.
 
+-spec decode_message(binary()) -> {timestamp(), iv(), binary()}.
 decode_message(Message) ->
     <<128, Timestamp:64/integer, IV:128/bitstring, Ciphertext/binary>> = Message,
     {Timestamp, IV, Ciphertext}.
 
+-spec decode_key(token()) -> {binary(), binary()}.
 decode_key(Key) ->
     KeyBin = base64url:decode(Key),
     <<SigningKey:128/bitstring, EncryptionKey:128/bitstring>> = KeyBin,
     {SigningKey, EncryptionKey}.
 
+-spec generate_key() -> binary().
 generate_key() ->
     base64url:encode(crypto:strong_rand_bytes(256 div 8)).
 
+-spec decrypt(token(), token()) -> binary().
 decrypt(Token, Key) ->
     decrypt(Token, Key, none).
 
+-spec decrypt(token(), token(), ttl()) -> binary().
 decrypt(Token, Key, TTL) ->
     decrypt(Token, Key, TTL, current_timestamp()).
 
+-spec decrypt(token(), token(), ttl(), timestamp()) -> binary().
 decrypt(Token, Key, TTL, CurrentTimestamp) ->
     {HMAC, Message} = try decode_token(Token) catch
         error:_ -> throw(invalid_token)
@@ -65,11 +80,13 @@ decrypt(Token, Key, TTL, CurrentTimestamp) ->
             throw(invalid_token)
     end.
 
+-spec encrypt(binary(), token()) -> binary().
 encrypt(Plaintext, Key) ->
     IV = crypto:strong_rand_bytes(128 div 8),
     Timestamp = current_timestamp(),
     encrypt(Plaintext, Key, IV, Timestamp).
 
+-spec encrypt(binary(), token(), iv(), timestamp()) -> binary().
 encrypt(Plaintext, Key, IV, Timestamp) when is_binary(Plaintext), is_binary(IV), is_integer(Timestamp) ->
     {SigningKey, EncryptionKey} = decode_key(Key),
     PaddedPlaintext = fernet_pkcs7:pad(Plaintext),
@@ -78,13 +95,16 @@ encrypt(Plaintext, Key, IV, Timestamp) when is_binary(Plaintext), is_binary(IV),
     HMAC = hmac_sha256(SigningKey, Message),
     encode_token(Message, HMAC).
 
+-spec hmac_sha256(binary(), binary()) -> binary().
 hmac_sha256(Key, Data) ->
     crypto:hmac(sha256, Key, Data).
 
+%-spec valid_hmac(hmac(), binary(), binary()) -> binary().
 valid_hmac(HMAC, Data, Key) ->
     CalculatedHMAC = hmac_sha256(Key, Data),
     eq(CalculatedHMAC, HMAC).
 
+-spec valid_timestamp(timestamp(), timestamp(), ttl()) -> boolean().
 valid_timestamp(_Timestamp, _CurrentTimestamp, TTL) when TTL == none ->
     true;
 valid_timestamp(Timestamp, CurrentTimestamp, TTL) when Timestamp + TTL > CurrentTimestamp andalso
@@ -93,6 +113,7 @@ valid_timestamp(Timestamp, CurrentTimestamp, TTL) when Timestamp + TTL > Current
 valid_timestamp(_Timestamp, _CurrentTimestamp, _TTL) ->
     false.
 
+-spec current_timestamp() -> timestamp().
 current_timestamp() ->
     {Mega, Sec, Micro} = os:timestamp(),
     Mega * 1000000 * 1000000 + Sec * 1000000 + Micro.
