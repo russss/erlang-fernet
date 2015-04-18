@@ -6,18 +6,22 @@
 -include_lib("eunit/include/eunit.hrl").
 -define(MAX_CLOCK_SKEW, 60).
 
+encode_token(Message, HMAC) ->
+    base64url:encode(<<Message/bitstring, HMAC/bitstring>>).
+
 decode_token(Token) ->
     TokenBin = base64url:decode(Token),
+    %% Split the token into the HMAC and the message (everything else)
     HMAC = binary:part(TokenBin, byte_size(TokenBin), -256 div 8),
-    RemainingToken = binary:part(TokenBin, 0, byte_size(TokenBin) - 256 div 8),
-    <<128, Timestamp:64/integer, IV:128/bitstring, Ciphertext/binary>> = RemainingToken,
-    {HMAC, RemainingToken, Timestamp, IV, Ciphertext}.
+    Message = binary:part(TokenBin, 0, byte_size(TokenBin) - 256 div 8),
+    {HMAC, Message}.
 
 encode_message(Timestamp, IV, Ciphertext) ->
     <<128, Timestamp:64/integer, IV:128/bitstring, Ciphertext/binary>>.
 
-encode_token(Message, HMAC) ->
-    base64url:encode(<<Message/bitstring, HMAC/bitstring>>).
+decode_message(Message) ->
+    <<128, Timestamp:64/integer, IV:128/bitstring, Ciphertext/binary>> = Message,
+    {Timestamp, IV, Ciphertext}.
 
 decode_key(Key) ->
     KeyBin = base64url:decode(Key),
@@ -34,7 +38,8 @@ decrypt(Token, Key, TTL) ->
     decrypt(Token, Key, TTL, current_timestamp()).
 
 decrypt(Token, Key, TTL, CurrentTimestamp) ->
-    {HMAC, Message, Timestamp, IV, Ciphertext} = decode_token(Token),
+    {HMAC, Message} = decode_token(Token),
+    {Timestamp, IV, Ciphertext} = decode_message(Message),
     {SigningKey, EncryptionKey} = decode_key(Key),
     case valid_timestamp(Timestamp, CurrentTimestamp, TTL) of
         false ->
@@ -113,3 +118,9 @@ encrypt_test() ->
     Plaintext = <<"hello">>,
     Token = <<"gAAAAAAdwJ6wAAECAwQFBgcICQoLDA0ODy021cpGVWKZ_eEwCGM4BLLF_5CV9dOPmrhuVUPgJobwOz7JcbmrR64jVmpU4IwqDA==">>,
     Token = encrypt(Plaintext, Key, IV, Timestamp).
+
+roundtrip_test() ->
+    Key = generate_key(),
+    Plaintext = <<"Test message 1234567890123456789012345678901234567890">>,
+    Token = encrypt(Plaintext, Key),
+    Plaintext = decrypt(Token, Key).
