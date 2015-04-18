@@ -12,6 +12,7 @@
 -define(MAX_CLOCK_SKEW, 60).
 
 -type token() :: [binary() | string()].
+-type key() :: [binary() | string()].
 -type hmac() :: <<_:128>>.
 -type timestamp() :: integer().
 -type ttl() :: integer() | none.
@@ -48,15 +49,15 @@ decode_key(Key) ->
 generate_key() ->
     base64url:encode(crypto:strong_rand_bytes(256 div 8)).
 
--spec decrypt(token(), token()) -> binary().
+-spec decrypt(token(), key()) -> binary().
 decrypt(Token, Key) ->
     decrypt(Token, Key, none).
 
--spec decrypt(token(), token(), ttl()) -> binary().
+-spec decrypt(token(), key(), ttl()) -> binary().
 decrypt(Token, Key, TTL) ->
     decrypt(Token, Key, TTL, current_timestamp()).
 
--spec decrypt(token(), token(), ttl(), timestamp()) -> binary().
+-spec decrypt(token(), key(), ttl(), timestamp()) -> binary().
 decrypt(Token, Key, TTL, CurrentTimestamp) ->
     {HMAC, Message} = try decode_token(Token) catch
         error:_ -> throw(invalid_token)
@@ -74,19 +75,18 @@ decrypt(Token, Key, TTL, CurrentTimestamp) ->
     PaddedPlaintext = try crypto:block_decrypt(aes_cbc128, EncryptionKey, IV, Ciphertext) catch
         error:_ -> throw(invalid_token)
     end,
-    io:format("~w~n", [PaddedPlaintext]),
     try fernet_pkcs7:unpad(PaddedPlaintext) catch
         invalid_padding ->
             throw(invalid_token)
     end.
 
--spec encrypt(binary(), token()) -> binary().
+-spec encrypt(binary(), key()) -> binary().
 encrypt(Plaintext, Key) ->
     IV = crypto:strong_rand_bytes(128 div 8),
     Timestamp = current_timestamp(),
     encrypt(Plaintext, Key, IV, Timestamp).
 
--spec encrypt(binary(), token(), iv(), timestamp()) -> binary().
+-spec encrypt(binary(), key(), iv(), timestamp()) -> binary().
 encrypt(Plaintext, Key, IV, Timestamp) when is_binary(Plaintext), is_binary(IV), is_integer(Timestamp) ->
     {SigningKey, EncryptionKey} = decode_key(Key),
     PaddedPlaintext = fernet_pkcs7:pad(Plaintext),
