@@ -56,7 +56,7 @@ decrypt(Token, Key, TTL, CurrentTimestamp) ->
             valid
     end,
     PaddedPlaintext = crypto:block_decrypt(aes_cbc128, EncryptionKey, IV, Ciphertext),
-    pkcs7:unpad(PaddedPlaintext).
+    fernet_pkcs7:unpad(PaddedPlaintext).
 
 encrypt(Plaintext, Key) ->
     IV = crypto:strong_rand_bytes(128 div 8),
@@ -65,7 +65,7 @@ encrypt(Plaintext, Key) ->
 
 encrypt(Plaintext, Key, IV, Timestamp) ->
     {SigningKey, EncryptionKey} = decode_key(Key),
-    PaddedPlaintext = pkcs7:pad(Plaintext),
+    PaddedPlaintext = fernet_pkcs7:pad(Plaintext),
     Ciphertext = crypto:block_encrypt(aes_cbc128, EncryptionKey, IV, PaddedPlaintext),
     Message = encode_message(Timestamp, IV, Ciphertext),
     HMAC = hmac_sha256(SigningKey, Message),
