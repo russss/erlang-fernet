@@ -1,3 +1,6 @@
+% This file is released under the MIT license.
+% See the LICENSE file for more information.
+
 -module(fernet_pkcs7).
 -export([pad/1, pad/2, unpad/1]).
 -ifdef(TEST).

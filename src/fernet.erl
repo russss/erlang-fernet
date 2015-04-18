@@ -1,3 +1,6 @@
+% This file is released under the MIT license.
+% See the LICENSE file for more information.
+
 -module(fernet).
 -export([generate_key/0,
          decrypt/2,
