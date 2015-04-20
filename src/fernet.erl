@@ -142,7 +142,7 @@ roundtrip_test() ->
     Plaintext = decrypt(Token, Key).
 
 fernet_spec_test() ->
-    {ok, Data} = file:read_file("../test_fixtures"),
+    {ok, Data} = file:read_file(code:priv_dir(fernet) ++ "/test_fixtures"),
     [run_tests(Type, Tests) || {Type, Tests} <- erlang:binary_to_term(Data)].
 
 run_tests("verify", Tests) ->
