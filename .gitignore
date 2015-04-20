@@ -3,3 +3,5 @@
 .eunit
 .rebar
 deps
+_build
+rebar.lock
